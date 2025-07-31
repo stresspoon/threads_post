@@ -20,7 +20,7 @@ def scrape_threads_posts(profile_url: str):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Encoding': 'identity',  # gzip 압축 비활성화
             'DNT': '1',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
@@ -30,6 +30,8 @@ def scrape_threads_posts(profile_url: str):
         response = requests.get(profile_url, headers=headers, timeout=15)
         response.raise_for_status()
         
+        # 인코딩 명시적 설정
+        response.encoding = 'utf-8'
         html_content = response.text
         print(f"페이지 응답 크기: {len(html_content)} 문자")
         
@@ -92,22 +94,58 @@ def scrape_threads_posts(profile_url: str):
         
         # 대체 방법: HTML에서 직접 텍스트 추출
         if not posts_list:
-            print("대체 방법으로 HTML에서 텍스트를 추출합니다.")
+            print("HTML에서 게시물 텍스트를 추출합니다.")
             
-            # 일반적인 게시물 패턴 찾기
-            text_patterns = [
-                r'<div[^>]*class="[^"]*text[^"]*"[^>]*>(.*?)</div>',
-                r'<p[^>]*>(.*?)</p>',
-                r'<span[^>]*>(.*?)</span>'
-            ]
+            # 제공된 HTML 구조를 기반으로 한 정확한 패턴
+            # <div class="x1xdureb xkbb5z x13vxnyz"> 안의 span 태그들에서 텍스트 추출
+            post_container_pattern = r'<div class="x1xdureb xkbb5z x13vxnyz"[^>]*>(.*?)</div>'
+            post_containers = re.findall(post_container_pattern, html_content, re.DOTALL)
             
-            for pattern in text_patterns:
-                matches = re.findall(pattern, html_content, re.DOTALL | re.IGNORECASE)
-                for match in matches:
-                    # HTML 태그 제거
-                    clean_text = re.sub(r'<[^>]+>', '', match).strip()
-                    if clean_text and len(clean_text) > 20 and clean_text not in posts_list:
-                        posts_list.append(clean_text)
+            print(f"게시물 컨테이너 {len(post_containers)}개를 찾았습니다.")
+            
+            for container in post_containers:
+                # 각 컨테이너 내에서 span 태그의 텍스트 추출
+                span_patterns = [
+                    r'<span[^>]*dir="auto"[^>]*><span>([^<]+)</span></span>',
+                    r'<span[^>]*><span>([^<]+)</span></span>',
+                    r'<span[^>]*>([^<]+)</span>'
+                ]
+                
+                container_texts = []
+                for span_pattern in span_patterns:
+                    span_matches = re.findall(span_pattern, container, re.DOTALL)
+                    for match in span_matches:
+                        clean_text = match.strip()
+                        if clean_text and len(clean_text) > 5:
+                            # 좋아요, 답글, 리포스트 등 UI 텍스트 필터링
+                            if not any(ui_text in clean_text for ui_text in ['좋아요', '답글', '리포스트', '공유하기', '팔로우']):
+                                container_texts.append(clean_text)
+                
+                # 컨테이너별로 텍스트 합치기
+                if container_texts:
+                    full_text = '\n'.join(container_texts)
+                    if full_text and len(full_text) > 10 and full_text not in posts_list:
+                        posts_list.append(full_text)
+                        print(f"게시물 발견: {full_text[:100]}...")
+            
+            # 추가 패턴: 더 넓은 범위에서 텍스트 찾기
+            if not posts_list:
+                print("추가 패턴으로 텍스트를 찾습니다.")
+                additional_patterns = [
+                    r'<span[^>]*dir="auto"[^>]*>([^<]{10,})</span>',
+                    r'>([가-힣\s]{20,})<',
+                    r'<div[^>]*>([가-힣\s\n]{30,})</div>'
+                ]
+                
+                for pattern in additional_patterns:
+                    matches = re.findall(pattern, html_content, re.DOTALL)
+                    for match in matches:
+                        clean_text = re.sub(r'\s+', ' ', match.strip())
+                        if clean_text and len(clean_text) > 20:
+                            if not any(ui_text in clean_text for ui_text in ['좋아요', '답글', '리포스트', '공유하기', '팔로우', '스레드']):
+                                if clean_text not in posts_list:
+                                    posts_list.append(clean_text)
+                                    print(f"추가 게시물 발견: {clean_text[:100]}...")
         
         # 중복 제거 및 정리
         unique_posts = []
