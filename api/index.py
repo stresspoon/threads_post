@@ -1,7 +1,6 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import urllib.parse
-from .main import app
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
