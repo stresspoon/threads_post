@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css'; // Bootstrap CSS 임포트
@@ -11,7 +13,8 @@ function App() {
   const [error, setError] = useState('');
   const [showErrorDetail, setShowErrorDetail] = useState(false); // 오류 상세 보기 토글
 
-  const handleScrape = async () => {
+  // 함수 선언 방식을 변경하여 세미콜론 관련 잠재적 문제 회피
+  async function handleScrape() {
     setLoading(true);
     setMessage('');
     setError('');
@@ -29,8 +32,7 @@ function App() {
       console.error('Error scraping posts:', err);
       const errorMessage = err.response?.data?.detail || '알 수 없는 오류가 발생했습니다.';
       setError(errorMessage);
-    }
-  } finally {
+    } finally {
       setLoading(false);
     }
   };
