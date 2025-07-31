@@ -39,6 +39,22 @@ def scrape_threads_posts(profile_url: str):
         print("HTML 샘플 (처음 500자):")
         print(html_content[:500])
         
+        # Threads 관련 키워드 검색
+        threads_keywords = ['x1xdureb', 'x1a6qonq', 'span', 'dir="auto"', 'class=']
+        for keyword in threads_keywords:
+            count = html_content.count(keyword)
+            print(f"'{keyword}' 발견: {count}회")
+            
+        # 실제 게시물 패턴 분석을 위한 샘플 출력
+        if 'x1a6qonq' in html_content:
+            # x1a6qonq가 포함된 부분 찾기
+            start_pos = html_content.find('x1a6qonq')
+            if start_pos != -1:
+                sample_start = max(0, start_pos - 200)
+                sample_end = min(len(html_content), start_pos + 1000)
+                print(f"x1a6qonq 주변 HTML (위치 {start_pos}):")
+                print(html_content[sample_start:sample_end])
+        
         # 간단한 텍스트 추출 (정규식 사용)
         posts_list = []
         
@@ -96,37 +112,57 @@ def scrape_threads_posts(profile_url: str):
         if not posts_list:
             print("HTML에서 게시물 텍스트를 추출합니다.")
             
-            # 제공된 HTML 구조를 기반으로 한 정확한 패턴
-            # <div class="x1xdureb xkbb5z x13vxnyz"> 안의 span 태그들에서 텍스트 추출
-            post_container_pattern = r'<div class="x1xdureb xkbb5z x13vxnyz"[^>]*>(.*?)</div>'
-            post_containers = re.findall(post_container_pattern, html_content, re.DOTALL)
+            # 다양한 컨테이너 패턴 시도
+            container_patterns = [
+                r'<div class="x1xdureb xkbb5z x13vxnyz"[^>]*>(.*?)</div>',  # 원래 패턴
+                r'<div[^>]*class="[^"]*x1xdureb[^"]*"[^>]*>(.*?)</div>',    # 더 유연한 패턴
+                r'<div[^>]*class="[^"]*x1a6qonq[^"]*"[^>]*>(.*?)</div>',    # x1a6qonq 기반
+                r'<div[^>]*x1a6qonq[^>]*>(.*?)</div>',                     # 간단한 x1a6qonq
+            ]
             
-            print(f"게시물 컨테이너 {len(post_containers)}개를 찾았습니다.")
+            post_containers = []
+            for i, pattern in enumerate(container_patterns):
+                containers = re.findall(pattern, html_content, re.DOTALL)
+                print(f"패턴 {i+1}: {len(containers)}개 컨테이너 발견")
+                if containers:
+                    post_containers.extend(containers)
+                    break  # 첫 번째로 매치되는 패턴 사용
             
-            for container in post_containers:
+            print(f"총 게시물 컨테이너 {len(post_containers)}개를 찾았습니다.")
+            
+            for idx, container in enumerate(post_containers[:10]):  # 최대 10개만 처리
+                print(f"\n=== 컨테이너 {idx+1} 분석 ===")
+                print(f"컨테이너 크기: {len(container)} 문자")
+                print(f"컨테이너 샘플: {container[:300]}...")
+                
                 # 각 컨테이너 내에서 span 태그의 텍스트 추출
                 span_patterns = [
                     r'<span[^>]*dir="auto"[^>]*><span>([^<]+)</span></span>',
+                    r'<span[^>]*dir="auto"[^>]*>([^<]+)</span>',
                     r'<span[^>]*><span>([^<]+)</span></span>',
-                    r'<span[^>]*>([^<]+)</span>'
+                    r'<span[^>]*>([^<]{10,})</span>',  # 최소 10자 이상
+                    r'>([가-힣][가-힣\s]{10,})<'  # 한국어 텍스트
                 ]
                 
                 container_texts = []
-                for span_pattern in span_patterns:
+                for pattern_idx, span_pattern in enumerate(span_patterns):
                     span_matches = re.findall(span_pattern, container, re.DOTALL)
+                    print(f"패턴 {pattern_idx+1}: {len(span_matches)}개 매치")
+                    
                     for match in span_matches:
                         clean_text = match.strip()
                         if clean_text and len(clean_text) > 5:
                             # 좋아요, 답글, 리포스트 등 UI 텍스트 필터링
-                            if not any(ui_text in clean_text for ui_text in ['좋아요', '답글', '리포스트', '공유하기', '팔로우']):
+                            if not any(ui_text in clean_text for ui_text in ['좋아요', '답글', '리포스트', '공유하기', '팔로우', '스레드']):
                                 container_texts.append(clean_text)
+                                print(f"텍스트 발견: {clean_text[:50]}...")
                 
                 # 컨테이너별로 텍스트 합치기
                 if container_texts:
                     full_text = '\n'.join(container_texts)
                     if full_text and len(full_text) > 10 and full_text not in posts_list:
                         posts_list.append(full_text)
-                        print(f"게시물 발견: {full_text[:100]}...")
+                        print(f"★ 게시물 완성: {full_text[:100]}...")
             
             # 추가 패턴: 더 넓은 범위에서 텍스트 찾기
             if not posts_list:
