@@ -1,5 +1,3 @@
-fastapi
-uvicorn
-selenium
-playwright
-mangum
+selenium==4.15.0
+playwright==1.40.0
+typing-extensions==4.5.0
