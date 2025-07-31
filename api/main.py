@@ -1,9 +1,9 @@
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import os
+import traceback
 
 # scraper.py에서 스크래핑 함수 임포트
 from .scraper import scrape_threads_posts
@@ -26,6 +26,7 @@ class ScrapeRequest(BaseModel):
 class ScrapeResponse(BaseModel):
     posts: List[str]
     message: str
+    error_detail: str = None # 오류 상세 정보 추가
 
 @app.get("/")
 async def read_root():
@@ -40,8 +41,9 @@ async def scrape_posts(request: ScrapeRequest):
     try:
         posts = scrape_threads_posts(profile_url)
         if not posts:
-            return ScrapeResponse(posts=[], message="게시물을 찾을 수 없거나 스크래핑에 실패했습니다.")
+            return ScrapeResponse(posts=[], message="게시물을 찾을 수 없거나 스크래핑에 실패했습니다.", error_detail="스크래핑 결과가 비어 있습니다. URL이 올바른지, 또는 해당 프로필에 게시물이 없는지 확인해주세요.")
         return ScrapeResponse(posts=posts, message=f"총 {len(posts)}개의 게시물을 성공적으로 가져왔습니다.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"서버 오류 발생: {str(e)}")
-
+        # 오류 발생 시 상세 트레이스백을 포함하여 반환
+        error_traceback = traceback.format_exc()
+        raise HTTPException(status_code=500, detail=f"서버 오류 발생: {str(e)}\n\n{error_traceback}")

@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css'; // Bootstrap CSS 임포트
@@ -11,22 +9,28 @@ function App() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showErrorDetail, setShowErrorDetail] = useState(false); // 오류 상세 보기 토글
 
   const handleScrape = async () => {
     setLoading(true);
     setMessage('');
     setError('');
     setPosts([]);
+    setShowErrorDetail(false); // 새로운 요청 시 오류 상세 숨김
 
     try {
-      // Vercel 배포 시 백엔드 API URL은 상대 경로로 설정
       const response = await axios.post('/api/scrape', { profile_url: profileUrl });
       setPosts(response.data.posts);
       setMessage(response.data.message);
+      if (response.data.error_detail) {
+        setError(response.data.error_detail);
+      }
     } catch (err) {
       console.error('Error scraping posts:', err);
-      setError(err.response?.data?.detail || '게시물을 가져오는 데 실패했습니다. URL을 확인해주세요.');
-    } finally {
+      const errorMessage = err.response?.data?.detail || '알 수 없는 오류가 발생했습니다.';
+      setError(errorMessage);
+    }
+  } finally {
       setLoading(false);
     }
   };
@@ -42,6 +46,11 @@ function App() {
     document.body.removeChild(link);
   };
 
+  const copyErrorToClipboard = () => {
+    navigator.clipboard.writeText(error);
+    alert('오류 메시지가 클립보드에 복사되었습니다.');
+  };
+
   return (
     <div className="App container mt-5">
       <h1 className="mb-4">Threads 게시물 스크래퍼</h1>
@@ -49,7 +58,7 @@ function App() {
         <input
           type="text"
           className="form-control"
-          placeholder="Threads 프로필 URL을 입력하세요 (예: https://www.threads.com/@threads)" // 플레이스홀더 변경
+          placeholder="Threads 프로필 URL을 입력하세요 (예: https://www.threads.com/@threads)"
           value={profileUrl}
           onChange={(e) => setProfileUrl(e.target.value)}
         />
@@ -58,7 +67,22 @@ function App() {
         </button>
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="alert alert-danger">
+          <p>{error.split('\n')[0]}</p> {/* 첫 줄만 표시 */}
+          <button className="btn btn-sm btn-outline-danger me-2" onClick={() => setShowErrorDetail(!showErrorDetail)}>
+            {showErrorDetail ? '오류 상세 숨기기' : '오류 상세 보기'}
+          </button>
+          <button className="btn btn-sm btn-outline-danger" onClick={copyErrorToClipboard}>
+            오류 복사
+          </button>
+          {showErrorDetail && (
+            <pre className="mt-3 p-2 bg-light text-dark text-start" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              {error}
+            </pre>
+          )}
+        </div>
+      )}
       {message && <div className="alert alert-success">{message}</div>}
 
       {posts.length > 0 && (
