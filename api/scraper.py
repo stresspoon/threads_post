@@ -33,30 +33,62 @@ def scrape_threads_posts(profile_url: str):
         html_content = response.text
         print(f"페이지 응답 크기: {len(html_content)} 문자")
         
+        # 디버깅: HTML 내용의 일부를 출력
+        print("HTML 샘플 (처음 500자):")
+        print(html_content[:500])
+        
         # 간단한 텍스트 추출 (정규식 사용)
         posts_list = []
         
-        # 스크립트 태그에서 JSON 데이터 찾기
-        script_pattern = r'<script[^>]*>.*?window\.__RELAY_STORE__\s*=\s*({.*?});.*?</script>'
-        script_matches = re.findall(script_pattern, html_content, re.DOTALL | re.IGNORECASE)
+        # 스크립트 태그에서 JSON 데이터 찾기 (다양한 패턴 시도)
+        json_patterns = [
+            r'<script[^>]*>.*?window\.__RELAY_STORE__\s*=\s*({.*?});.*?</script>',
+            r'__RELAY_STORE__\s*=\s*({.*?});',
+            r'"text"\s*:\s*"([^"]+)"',
+            r'RelayStore.*?({.*?})'
+        ]
         
-        if script_matches:
-            try:
-                # JSON 데이터 파싱
-                relay_data = json.loads(script_matches[0])
-                print("Relay Store 데이터를 찾았습니다.")
+        for pattern in json_patterns:
+            script_matches = re.findall(pattern, html_content, re.DOTALL | re.IGNORECASE)
+            if script_matches:
+                print(f"패턴 매치 발견: {len(script_matches)}개")
+                try:
+                    if pattern == r'"text"\s*:\s*"([^"]+)"':
+                        # 직접 텍스트 추출
+                        for match in script_matches:
+                            if len(match) > 10 and match not in posts_list:
+                                posts_list.append(match)
+                    else:
+                        # JSON 데이터 파싱
+                        relay_data = json.loads(script_matches[0])
+                        print("JSON 데이터를 찾았습니다.")
+                        
+                        # 게시물 텍스트 추출
+                        def extract_text_recursive(obj, depth=0):
+                            if depth > 10:  # 무한 재귀 방지
+                                return
+                            
+                            if isinstance(obj, dict):
+                                for key, value in obj.items():
+                                    if key == 'text' and isinstance(value, str) and len(value.strip()) > 10:
+                                        clean_text = value.strip()
+                                        if clean_text not in posts_list and not any(skip in clean_text.lower() for skip in ['follow', 'like', 'reply', 'share']):
+                                            posts_list.append(clean_text)
+                                            print(f"게시물 발견: {clean_text[:50]}...")
+                                    elif isinstance(value, (dict, list)):
+                                        extract_text_recursive(value, depth + 1)
+                            elif isinstance(obj, list):
+                                for item in obj:
+                                    extract_text_recursive(item, depth + 1)
+                        
+                        extract_text_recursive(relay_data)
+                        
+                except json.JSONDecodeError as e:
+                    print(f"JSON 파싱 실패: {e}")
+                    continue
                 
-                # 게시물 텍스트 추출
-                for key, value in relay_data.items():
-                    if isinstance(value, dict) and 'text' in value:
-                        text = value.get('text', '').strip()
-                        if text and len(text) > 10 and text not in posts_list:
-                            # 불필요한 문자나 키워드 필터링
-                            if not any(skip_word in text.lower() for skip_word in ['follow', 'like', 'reply', 'repost']):
-                                posts_list.append(text)
-                
-            except json.JSONDecodeError:
-                print("JSON 파싱에 실패했습니다.")
+                if posts_list:
+                    break
         
         # 대체 방법: HTML에서 직접 텍스트 추출
         if not posts_list:
