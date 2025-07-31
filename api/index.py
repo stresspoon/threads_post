@@ -1,4 +1,5 @@
+from fastapi import FastAPI
+from mangum import Mangum
 from .main import app
 
-def handler(request, context):
-    return app(request, context)
+handler = Mangum(app)
