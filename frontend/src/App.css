@@ -1,0 +1,11 @@
+.App {
+  text-align: center;
+}
+
+.posts-list {
+  text-align: left;
+}
+
+.card-text {
+  white-space: pre-wrap; /* 줄바꿈 유지 */
+}
