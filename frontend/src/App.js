@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css'; // Bootstrap CSS 임포트
@@ -36,6 +38,7 @@ function App() {
     link.href = URL.createObjectURL(blob);
     link.download = 'threads_posts.txt';
     document.body.appendChild(link);
+    link.click();
     document.body.removeChild(link);
   };
 
@@ -46,7 +49,7 @@ function App() {
         <input
           type="text"
           className="form-control"
-          placeholder="Threads 프로필 URL을 입력하세요 (예: https://www.threads.com/@easygpt2526)"
+          placeholder="Threads 프로필 URL을 입력하세요 (예: https://www.threads.com/@threads)" // 플레이스홀더 변경
           value={profileUrl}
           onChange={(e) => setProfileUrl(e.target.value)}
         />

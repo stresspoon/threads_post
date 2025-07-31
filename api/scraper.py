@@ -1,9 +1,18 @@
-
-
 import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+import os
+
+# Vercel 환경에서 Playwright Chromium을 사용하기 위한 설정
+# Playwright는 설치 시 브라우저 바이너리를 함께 설치합니다.
+# Vercel 환경에서는 PATH가 다를 수 있으므로 직접 지정하거나, 
+# playwright-python의 Service를 사용하는 것이 좋습니다.
+
+# Vercel 환경에서 Chromium 실행 파일 경로 설정
+# Vercel 빌드 시 playwright install chromium 명령으로 설치된 경로를 가정합니다.
+CHROMIUM_PATH = os.path.join(os.getcwd(), ".cache", "ms-playwright", "chromium", "chrome-linux", "chrome")
 
 def scrape_threads_posts(profile_url: str):
     print(f"스크래핑을 시작합니다: {profile_url}")
@@ -13,15 +22,21 @@ def scrape_threads_posts(profile_url: str):
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-
-    # Vercel 환경을 위한 추가 설정 (chrome-aws-lambda 사용 시 필요)
-    # from selenium.webdriver.chrome.service import Service
-    # from webdriver_manager.chrome import ChromeDriverManager
-    # service = Service(ChromeDriverManager().install())
-    # driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    # Vercel 환경에서 Chromium 실행 파일 경로를 지정합니다.
+    # 로컬 테스트 시에는 이 줄을 주석 처리하거나, 로컬 크롬 드라이버 경로를 지정해야 합니다.
+    if os.path.exists(CHROMIUM_PATH):
+        chrome_options.binary_location = CHROMIUM_PATH
+    else:
+        print(f"경고: Chromium 실행 파일을 찾을 수 없습니다: {CHROMIUM_PATH}")
+        print("로컬 환경에서 실행 중이거나, Vercel 빌드 시 Playwright 설치에 문제가 있을 수 있습니다.")
 
     try:
-        driver = webdriver.Chrome(options=chrome_options)
+        # Service 객체를 사용하여 드라이버를 초기화합니다.
+        # Vercel 환경에서는 Service(executable_path=...)를 명시적으로 사용하는 것이 좋습니다.
+        service = Service()
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        
         driver.get(profile_url)
         print("페이지 로딩 중... (10초 대기)")
         time.sleep(10)
@@ -80,4 +95,3 @@ if __name__ == '__main__':
     for i, post in enumerate(posts):
         print(f"--- 게시물 {i+1} ---")
         print(post)
-
