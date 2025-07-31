@@ -4,9 +4,9 @@ import urllib.parse
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # FastAPI 앱의 루트 엔드포인트 처리
-        if self.path == '/':
-            response_data = {"message": "Threads Scraper API is running. Use /scrape endpoint to get posts."}
+        # API 루트 엔드포인트 처리
+        if self.path == '/' or self.path == '/api':
+            response_data = {"message": "Threads Scraper API is running. Use /api/scrape endpoint to get posts."}
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -16,8 +16,8 @@ class handler(BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
     
     def do_POST(self):
-        # /scrape 엔드포인트 처리
-        if self.path == '/scrape':
+        # /api/scrape 또는 /scrape 엔드포인트 처리
+        if self.path == '/scrape' or self.path == '/api/scrape':
             try:
                 content_length = int(self.headers['Content-Length'])
                 post_data = self.rfile.read(content_length)
