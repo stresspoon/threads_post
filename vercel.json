@@ -1,11 +1,14 @@
-
 {
   "version": 2,
   "builds": [
     {
       "src": "api/main.py",
       "use": "@vercel/python",
-      "config": { "maxLambdaSize": "15mb", "runtime": "python3.12" }
+      "config": {
+        "maxLambdaSize": "15mb",
+        "runtime": "python3.12",
+        "handler": "api.main.app" // 명시적으로 핸들러 지정
+      }
     },
     {
       "src": "frontend/package.json",
